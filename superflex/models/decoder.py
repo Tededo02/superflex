@@ -4,11 +4,11 @@ from torch.nn import TransformerDecoderLayer
 import math
 
 class SinusoidalPositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len, device='cuda'):
+    def __init__(self, d_model, max_len, device='cpu'):
         super(SinusoidalPositionalEncoding, self).__init__()
-        pe = torch.zeros(max_len+1, d_model).to(device)
-        position = torch.arange(0, max_len+1, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len+1, d_model, device=device)
+        position = torch.arange(0, max_len+1, dtype=torch.float, device=device).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2, dtype=torch.float, device=device) * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         self.register_buffer('pe', pe)
@@ -17,9 +17,9 @@ class SinusoidalPositionalEncoding(nn.Module):
         return x + self.pe
 
 class LearnablePositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len, device='cuda'):
+    def __init__(self, d_model, max_len, device='cpu'):
         super(LearnablePositionalEncoding, self).__init__()
-        self.positional_encoding = nn.Parameter(torch.zeros(max_len+1, d_model)).to(device)
+        self.positional_encoding = nn.Parameter(torch.zeros(max_len+1, d_model, device=device))
         nn.init.normal_(self.positional_encoding, mean=0, std=0.02)  # Initialize learnable positional encodings
 
     def forward(self, x):
@@ -33,7 +33,7 @@ class NoPositionalEncoding(nn.Module):
     to learn position-agnostic representations. Based on the DroPE paper:
     https://pub.sakana.ai/DroPE/
     """
-    def __init__(self, d_model, max_len, device='cuda'):
+    def __init__(self, d_model, max_len, device='cpu'):
         super(NoPositionalEncoding, self).__init__()
 
     def forward(self, x):
@@ -81,4 +81,3 @@ class TransformerDecoder(nn.Module):
             assign_matrices.append(assign_matrix)  # Append projected queries
 
         return intermediate_outputs, assign_matrices  # Return the list of all intermediate outputs
-

@@ -32,23 +32,26 @@
 
 ### Environment Setup
 
-Clone the repository and set up the environment:
+For CPU or Apple Silicon inference, install the lightweight environment. The demo
+uses native PyTorch voxelization and interpolation on CPU/MPS, so neither CUDA nor
+`torch-cluster` nor the training sampler is needed:
 
 ```bash
-git clone git@github.com:GabrielTavernini/superflex.git
+git clone --branch metal-support https://github.com/Tededo02/superflex.git
 cd superflex
 
 # Create and activate virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install inference dependencies
+pip install -r requirements-inference.txt
 pip install -e .
-
-# Build sampler (required for training only)
-python setup_sampler.py build_ext --inplace
 ```
+
+For the full training environment, also run `pip install -r requirements.txt` and
+`python setup_sampler.py build_ext --inplace`. CUDA inference retains the original
+PVCNN extension and requires a working CUDA toolkit and `ninja`.
 
 ### Download Pre-trained Models
 
@@ -68,10 +71,52 @@ Alternatively, you can download the individual folders using the links below.
 | ShapeNet + ASE | ✅ | ✅ | ✅ |[robust](https://drive.google.com/drive/folders/1cHbtZLToQRontte6CyzvQpL5IHUqk-x4?usp=sharing) |
 
 ### Inference Example
-Once downloaded the checkpoints you can run an inference example by doing:
+Once downloaded, run the robust checkpoint on the included lamp using CPU:
 ```bash
-python demo_viser.py
+python demo_viser.py --device cpu
 ```
+
+On an Apple Silicon Mac, select its GPU with MPS:
+
+```bash
+python demo_viser.py --device mps
+```
+
+`--device auto` prefers CUDA, then MPS, then CPU. The default is CPU. An explicitly
+requested unavailable device produces an error. MPS uses float32 native PyTorch
+operations; unsupported operators are reported instead of silently switching to CPU.
+
+Open the local Viser URL printed in the terminal (normally
+`http://127.0.0.1:8080`) and press Ctrl+C in the terminal to stop it.
+Predictions are saved to `outputs/test.npz`. Mesh extraction and visualization
+run on CPU even when model inference uses the GPU.
+
+Use your own single-object point cloud or mesh without editing the script:
+
+```bash
+python demo_viser.py --device mps --input /path/to/object.ply --z-up
+python demo_viser.py --device cpu --input examples/chair.glb
+```
+
+Omit `--z-up` for Y-up inputs. Set `NUM_POINTS` near the top of `demo_viser.py`
+to change the inference point count (default: 10000). Any positive integer can be
+used; multiples of 4096 are not required. Point clouds are randomly resampled to
+that count (with replacement for smaller clouds); meshes are sampled on their surfaces.
+Inputs are centered and scaled by default. `--seed` makes resampling repeatable.
+Both predictions and displayed points are restored to the original input frame.
+
+To save results and exit without a viewer:
+
+```bash
+python demo_viser.py --device cpu --no-viewer --output outputs/lamp_cpu.npz --mesh-output outputs/lamp_cpu.glb
+```
+
+Use `--checkpoint-dir checkpoints/superflex` to select another checkpoint,
+`--port 8081` to change the viewer port, or `python demo_viser.py --help` to list
+all options. Run numerical regression checks with
+`python -m unittest discover -s tests -v` (MPS checks skip when unavailable).
+Use `--no-viewer --benchmark-runs 10` to measure steady-state inference; first-use
+GPU initialization can make the initial inference slower.
 
 <p align="center">
   <img src="https://superflex3d.github.io/static/figures/viser/demo0.jpg" width="32%" />

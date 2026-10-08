@@ -1,0 +1,7 @@
+torch>=2.8
+numpy
+omegaconf>=2.3
+trimesh>=4
+plyfile
+viser
+scipy
